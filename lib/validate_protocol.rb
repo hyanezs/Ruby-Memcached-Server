@@ -12,12 +12,10 @@ module ValidateProtocol
 
     # all storage commands should be 4 length (regardless of <cas> or [noreply])
     if params_length == 4
-      puts("correct params length: #{params_length}")
       ['', true]
     else
-      puts("incorrect params length: #{params_length}")
+      puts("Incorrect parameters length: #{params_length}")
       ["CLIENT_ERROR Incorrect protocol input: Wrong number of parameters\r\n", false]
     end
-    
   end
 end

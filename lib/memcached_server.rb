@@ -40,6 +40,7 @@ class MemcachedServer
   end
 
   def process_read_command(key)
+    # assert -> is read commmand
     get(key)
   end
 
@@ -72,10 +73,12 @@ class MemcachedServer
 
   # parameters processing
   def process_params(tokens, data_block)
+    # assert -> params validated
     {
       key: tokens[1],
       flags: tokens[2],
-      exptime: tokens[3],
+      exptime: Integer(tokens[3]),
+      stored_time: Time.now.to_i,
       bytes: tokens[4],
       data_block: data_block
     }
@@ -94,22 +97,60 @@ class MemcachedServer
 
   # utils
   def exists?(key)
+    puts("Exists?  #{@cache.key?(key)}")
     @cache.key?(key)
   end
 
+  def expired?(key)
+    exptime = @cache[key][:exptime]
+    stored_time = @cache[key][:stored_time]
+    return false if exptime.zero?
+
+    if unix_time?(exptime)
+      is_expired = Time.now.to_i > exptime
+      remaining_time = exptime - Time.now.to_i
+    else
+      time_passed = Time.now.to_i - stored_time
+      is_expired = time_passed > exptime
+      remaining_time = exptime - time_passed
+    end
+
+    puts("Has expired?  #{is_expired}")
+    puts("Remaining time:  #{remaining_time}") unless is_expired
+    is_expired
+  end
+
+  def retrievable?(key)
+    if exists?(key) && !expired?(key)
+      puts('Sending value...')
+      true
+    else
+      puts('Data could not be retrieved, value has expired or key is not valid')
+      false
+    end
+  end
+
+  def unix_time?(exptime)
+    # exptime > 30 days then is Unix time (seconds from Jan 1 1970)
+    exptime > 2_592_000
+  end
+
   def start
+    puts('Server running! Listening on localhost:11211')
     loop do
-      puts('Server running! Listening on localhost:11211')
       Thread.start(@server.accept) do |client| # accept a connection - client
         while (input = client.gets.chop)
           tokens = input.split
           command = tokens[0]
-          puts("Command received \r\n #{tokens}")
-
+          puts("################################################################\r\n")
+          puts("Command received:  #{command}\r\n")
+          puts("Parameters:  #{tokens.slice(1, tokens.length - 1)}\r\n")
           if command_read?(command)
             keys = tokens.slice(1, tokens.length - 1)
             keys.each do |key|
-              next unless exists?(key) # skip when !exists
+              puts("################################################################\r\n")
+              puts("Retrieving key:  #{key}")
+              next unless retrievable?(key) # skip when !exists
 
               flags, bytes, data_block = process_read_command(key)
               client.puts("VALUE #{key} #{flags} #{bytes}\r\n")
