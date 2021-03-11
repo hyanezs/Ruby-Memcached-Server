@@ -30,7 +30,31 @@ Head over to [.lib/memcached_server](./lib/memcached_server.rb) and set
 	Check logs for:  `Listening on localhost:11211`
 3. Connect with a client to the server and start issuing commands*
 
-*Full [protocol](https://github.com/memcached/memcached/blob/master/doc/protocol.txt) of commands and responses
+*[Full protocol](https://github.com/memcached/memcached/blob/master/doc/protocol.txt) and [relevant protocol](./protocol) of commands and responses
+
+
+## Supported Commands
+### Retrieval commands
+
+   ` $ get <key> [<key ... <key>]`
+  `  $ gets <key> [<key ... <key>]`
+
+### Storage commands
+
+   ` $ <command name> <key> <flags> <exptime> <bytes> [noreply]`
+   
+Where  &nbsp; `<command name>` &nbsp; is one of:
+- set
+- add
+- replace
+- append
+- prepend
+
+Also supports:
+
+  ` $ <cas> <key> <flags> <exptime> <bytes> <cas_unique> [noreply]`
+
+Read protocol for more information on commands and arguments
 
 ## Testing
 
