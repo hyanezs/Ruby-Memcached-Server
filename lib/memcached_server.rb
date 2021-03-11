@@ -39,30 +39,45 @@ class MemcachedServer
     WRITE_COMMANDS.include?(command)
   end
 
-  def process_write_command(command, to_store)
+  def process_write_command(command, to_store, cas_unique)
     # assert -> is write command
 
     key = to_store[:key]
     case command
     when 'set'
-      store(to_store) # returns "STORED"
+      store(to_store, key) # returns "STORED"
 
     # add & replace return "NOT_STORED" if key already exists (add) or doesnt exist (replace)
     when 'add'
       if exists?(key)
         "NOT_STORED\r\n" # "STORED"
-      else store(to_store)
+      else store(to_store, key)
       end
     when 'replace'
       if exists?(key)
-        store(to_store) # "STORED"
+        store(to_store, key) # "STORED"
       else "NOT_STORED\r\n"
       end
-      # TODO
 
-      # when 'append'
-      # when 'prepend'
-      # when 'cas'
+    # append & prepend only update bytes & data_block
+    when 'append'
+      if exists?(key)
+        append(to_store, key) # "STORED"
+      else "NOT_STORED\r\n"
+      end
+
+    when 'prepend'
+      if exists?(key)
+        prepend(to_store, key) # "STORED"
+      else "NOT_STORED\r\n"
+      end
+
+    # cas stores if cas_unique == cas_unique from item in cache
+    when 'cas'
+      if exists?(key)
+        cas(to_store, key, cas_unique) # "STORED" or "EXISTS"
+      else "NOT_FOUND\r\n"
+      end
     end
   end
 
@@ -71,10 +86,10 @@ class MemcachedServer
     # assert -> params validated
     {
       key: tokens[1],
-      flags: tokens[2],
+      flags: Integer(tokens[2], 10),
       exptime: Integer(tokens[3]),
       stored_time: Time.now.to_i,
-      bytes: tokens[4],
+      bytes: Integer(tokens[4], 10),
       data_block: data_block,
       cas_unique: next_cas_unique
     }
@@ -97,9 +112,42 @@ class MemcachedServer
   end
 
   # storage commands
-  def store(to_store)
-    @cache[to_store[:key]] = to_store
+  def store(to_store, key)
+    @cache[key] = to_store
     "STORED\r\n"
+  end
+
+  def append(to_store, key)
+    new_bytes = to_store[:bytes] + @cache[key][:bytes]
+    data_block = @cache[key][:data_block]
+    data_block = data_block.slice(0, data_block.length - 2) # deletes "\r\n"
+    data_block.concat(to_store[:data_block])
+    @cache[key][:bytes] = new_bytes
+    @cache[key][:data_block] = data_block
+    @cache[key][:cas_unique] = to_store[:cas_unique]
+    "STORED\r\n"
+  end
+
+  def prepend(to_store, key)
+    new_bytes = to_store[:bytes] + @cache[key][:bytes]
+    data_block = to_store[:data_block]
+    data_block = data_block.slice(0, data_block.length - 2) # deletes "\r\n"
+    data_block.concat(@cache[key][:data_block])
+    @cache[key][:bytes] = new_bytes
+    @cache[key][:data_block] = data_block
+    @cache[key][:cas_unique] = to_store[:cas_unique]
+    "STORED\r\n"
+  end
+
+  def cas(to_store, key, cas_unique)
+    puts("cas entered  #{cas_unique}")
+    puts("cache cas:  #{@cache[key][:cas_unique]}")
+    if @cache[key][:cas_unique] == cas_unique
+      @cache[key] = to_store
+      "STORED\r\n"
+    else
+      "EXISTS\r\n"
+    end
   end
 
   # utils
@@ -157,7 +205,7 @@ class MemcachedServer
 
   # run
   def start
-    puts('Server running! Listening on localhost:11211') if @debug
+    puts('Server running! Listening on localhost:11211') # independent of @debug to know that is running
     loop do
       Thread.start(@server.accept) do |client| # accept a connection - client
         while (input = client.gets.chop)
@@ -192,19 +240,23 @@ class MemcachedServer
             error_string, is_protocol_valid = protocol_valid?(tokens, no_reply)
 
             if is_protocol_valid
-              data_block = client.gets
-              data_block = process_data_block(data_block, tokens[4])
+
+              data_block_input = client.gets
+              data_block_input.concat(client.gets) while data_block_input.length <= Integer(tokens[4], 10)
+              data_block = process_data_block(data_block_input, tokens[4])
 
               puts("Data block received \r\n #{data_block}") if @debug
+              cas_unique = nil
+              cas_unique = tokens[5].to_i if tokens.length > 5 && tokens[5] != 'noreply'
 
               to_store = process_params(tokens, data_block)
-              client.puts(process_write_command(command, to_store)) unless no_reply
+              client.puts(process_write_command(command, to_store, cas_unique)) unless no_reply
             else
               client.puts(error_string) unless no_reply
             end
 
           else
-            # means the client sent a nonexistent command
+            # command is not read nor write, client sent a nonexistent command
             puts('Nonexistent command') if @debug
             client.puts("ERROR\r\n")
           end
