@@ -16,15 +16,15 @@ class MemcachedServer
     @server = TCPServer.open(11_211)
     # stored data
     @cache = {}
+    # cas counter
+    @cas_unique = 0
+    # server console logging
+    @debug = true
   end
 
   # command processing
-  def protocol_valid?(tokens, no_reply, client)
-    # TODO: only length implemented
-    last_token = no_reply ? tokens.length - 2 : tokens.length - 1
-    params = tokens.slice(1, last_token)
-    is_cas = tokens[0] == 'cas'
-    ValidateProtocol.validate_length(params, is_cas, client)
+  def protocol_valid?(tokens, no_reply)
+    ValidateProtocol.validate(tokens, no_reply, @debug)
   end
 
   def no_reply?(tokens)
@@ -37,11 +37,6 @@ class MemcachedServer
 
   def command_write?(command)
     WRITE_COMMANDS.include?(command)
-  end
-
-  def process_read_command(key)
-    # assert -> is read commmand
-    get(key)
   end
 
   def process_write_command(command, to_store)
@@ -80,13 +75,25 @@ class MemcachedServer
       exptime: Integer(tokens[3]),
       stored_time: Time.now.to_i,
       bytes: tokens[4],
-      data_block: data_block
+      data_block: data_block,
+      cas_unique: next_cas_unique
     }
+  end
+
+  # data processing
+  def process_data_block(data_block, bytes)
+    bytes = Integer(bytes, 10)
+    if data_block.length > bytes
+      data_block = data_block.slice(0, bytes)
+      data_block.concat("\r\n")
+    else
+      data_block
+    end
   end
 
   # retrieval commands
   def get(key)
-    [@cache[key][:flags], @cache[key][:bytes], @cache[key][:data_block]]
+    [@cache[key][:flags], @cache[key][:bytes], @cache[key][:data_block], @cache[key][:cas_unique]]
   end
 
   # storage commands
@@ -97,7 +104,7 @@ class MemcachedServer
 
   # utils
   def exists?(key)
-    puts("Exists?  #{@cache.key?(key)}")
+    puts("Exists?  #{@cache.key?(key)}") if @debug
     @cache.key?(key)
   end
 
@@ -115,17 +122,22 @@ class MemcachedServer
       remaining_time = exptime - time_passed
     end
 
-    puts("Has expired?  #{is_expired}")
-    puts("Remaining time:  #{remaining_time}") unless is_expired
+    puts("Has expired?  #{is_expired}") if @debug
+    if is_expired
+      # lazy delete (delete when client tries to unsuccessfully access)
+      @cache.delete(key)
+    elsif @debug
+      puts("Remaining time:  #{remaining_time}  seconds")
+    end
     is_expired
   end
 
   def retrievable?(key)
     if exists?(key) && !expired?(key)
-      puts('Sending value...')
+      puts('Sending value...') if @debug
       true
     else
-      puts('Data could not be retrieved, value has expired or key is not valid')
+      puts('Data could not be retrieved, value has expired or key is not valid') if @debug
       false
     end
   end
@@ -135,36 +147,56 @@ class MemcachedServer
     exptime > 2_592_000
   end
 
+  def next_cas_unique
+    @cas_unique += 1
+  end
+
+  def gets?(command)
+    command == 'gets'
+  end
+
+  # run
   def start
-    puts('Server running! Listening on localhost:11211')
+    puts('Server running! Listening on localhost:11211') if @debug
     loop do
       Thread.start(@server.accept) do |client| # accept a connection - client
         while (input = client.gets.chop)
           tokens = input.split
           command = tokens[0]
-          puts("################################################################\r\n")
-          puts("Command received:  #{command}\r\n")
-          puts("Parameters:  #{tokens.slice(1, tokens.length - 1)}\r\n")
+          puts("\r\n##########################################################r\n") if @debug
+          puts("Command received:  #{command}\r\n") if @debug
+          puts("Parameters:  #{tokens.slice(1, tokens.length - 1)}\r\n") if @debug
           if command_read?(command)
+            is_gets = gets?(command)
             keys = tokens.slice(1, tokens.length - 1)
+
+            puts("No keys submitted.\r\n") if keys.length.zero?
+
             keys.each do |key|
-              puts("################################################################\r\n")
-              puts("Retrieving key:  #{key}")
+              puts("#############################\r\n") if @debug
+              puts("Retrieving key:  #{key}") if @debug
               next unless retrievable?(key) # skip when !exists
 
-              flags, bytes, data_block = process_read_command(key)
-              client.puts("VALUE #{key} #{flags} #{bytes}\r\n")
+              flags, bytes, data_block, cas_unique = get(key)
+              if is_gets
+                client.puts("VALUE #{key} #{flags} #{bytes} #{cas_unique}\r\n")
+              else
+                client.puts("VALUE #{key} #{flags} #{bytes}\r\n")
+              end
               client.puts(data_block)
             end
             client.puts("END\r\n")
 
           elsif command_write?(command)
             no_reply = no_reply?(tokens)
-            error_string, is_protocol_valid = protocol_valid?(tokens, no_reply, client)
+            error_string, is_protocol_valid = protocol_valid?(tokens, no_reply)
 
             if is_protocol_valid
               data_block = client.gets
-              puts("Data block received \r\n #{data_block}")
+              data_block = process_data_block(data_block, tokens[4])
+
+              puts("Data block received \r\n #{data_block}") if @debug
+
               to_store = process_params(tokens, data_block)
               client.puts(process_write_command(command, to_store)) unless no_reply
             else
@@ -173,7 +205,7 @@ class MemcachedServer
 
           else
             # means the client sent a nonexistent command
-            puts('Nonexistent command')
+            puts('Nonexistent command') if @debug
             client.puts("ERROR\r\n")
           end
         end
@@ -182,5 +214,5 @@ class MemcachedServer
   end
 end
 
-test = MemcachedServer.new
-test.start
+Memcached = MemcachedServer.new
+Memcached.start
