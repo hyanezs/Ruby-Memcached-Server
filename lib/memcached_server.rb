@@ -23,10 +23,6 @@ class MemcachedServer
   end
 
   # command processing
-  def protocol_valid?(tokens, no_reply)
-    ValidateProtocol.validate(tokens, no_reply, @debug)
-  end
-
   def no_reply?(tokens)
     tokens[tokens.length - 1] == 'noreply'
   end
@@ -81,9 +77,13 @@ class MemcachedServer
     end
   end
 
-  # parameters processing
-  def process_params(tokens, data_block)
-    # assert -> params validated
+  # arguments processing
+  def protocol_valid?(tokens, no_reply)
+    ValidateProtocol.validate(tokens, no_reply, @debug)
+  end
+
+  def process_args(tokens, data_block)
+    # assert -> args validated
     {
       key: tokens[1],
       flags: Integer(tokens[2], 10),
@@ -214,21 +214,24 @@ class MemcachedServer
           puts("\r\n##########################################################r\n") if @debug
           puts("Command received:  #{command}\r\n") if @debug
           puts("Parameters:  #{tokens.slice(1, tokens.length - 1)}\r\n") if @debug
+
           if command_read?(command)
             is_gets = gets?(command)
             keys = tokens.slice(1, tokens.length - 1)
-
             puts("No keys submitted.\r\n") if keys.length.zero?
-
             keys.each do |key|
               puts("#############################\r\n") if @debug
               puts("Retrieving key:  #{key}") if @debug
-              next unless retrievable?(key) # skip when !exists
 
+              next unless retrievable?(key) # skip when !exists or is_expired
+
+              # if retrievable then get item
               flags, bytes, data_block, cas_unique = get(key)
               if is_gets
+                # gets
                 client.puts("VALUE #{key} #{flags} #{bytes} #{cas_unique}\r\n")
               else
+                # get
                 client.puts("VALUE #{key} #{flags} #{bytes}\r\n")
               end
               client.puts(data_block)
@@ -236,20 +239,24 @@ class MemcachedServer
             client.puts("END\r\n")
 
           elsif command_write?(command)
+            # protocol processing
             no_reply = no_reply?(tokens)
             error_string, is_protocol_valid = protocol_valid?(tokens, no_reply)
 
             if is_protocol_valid
-
+              # get data_block until bytes
               data_block_input = client.gets
               data_block_input.concat(client.gets) while data_block_input.length <= Integer(tokens[4], 10)
+              # cut data_block if longer than bytes
               data_block = process_data_block(data_block_input, tokens[4])
-
               puts("Data block received \r\n #{data_block}") if @debug
-              cas_unique = nil
-              cas_unique = tokens[5].to_i if tokens.length > 5 && tokens[5] != 'noreply'
 
-              to_store = process_params(tokens, data_block)
+              # if cas then get cas_unique
+              cas_unique = nil
+              cas_unique = Integer(tokens[5], 10) if tokens.length > 5 && tokens[5] != 'noreply'
+
+              # try to store, sends STORED or <error> to client
+              to_store = process_args(tokens, data_block)
               client.puts(process_write_command(command, to_store, cas_unique)) unless no_reply
             else
               client.puts(error_string) unless no_reply
