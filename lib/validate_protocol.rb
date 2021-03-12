@@ -26,6 +26,8 @@ module ValidateProtocol
       [err(3), false]
     elsif !bytes_valid?(tokens[4])
       [err(4), false]
+    elsif !cas_unique_valid?(tokens, is_cas)
+      [err(5), false]
     else
       ['', true]
     end
@@ -42,7 +44,10 @@ module ValidateProtocol
     when 3
       "CLIENT_ERROR Incorrect protocol input: Expiration time must be a number\r\n"
     when 4
-      "CLIENT_ERROR Incorrect protocol input: Bytes must be a number\r\n"
+      "CLIENT_ERROR Incorrect protocol input: bytes must be a positive number\r\n"
+
+    when 5
+      "CLIENT_ERROR Incorrect protocol input: cas_unique must be a positive number\r\n"
     end
   end
 
@@ -86,9 +91,19 @@ module ValidateProtocol
     !!exptime.match(UNSIGNED_INTEGER_REGEX)
   end
 
-  def self.bytes(bytes)
-    # should be a number
+  def self.bytes_valid?(bytes)
+    # should be a positive number
 
     !!bytes.match(UNSIGNED_INTEGER_REGEX)
+  end
+
+  def self.cas_unique_valid?(tokens, is_cas)
+    # should be a positive number
+
+    if is_cas
+      !tokens[5].match(UNSIGNED_INTEGER_REGEX).nil?
+    else
+      true
+    end
   end
 end
