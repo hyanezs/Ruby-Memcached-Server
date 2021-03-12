@@ -224,7 +224,7 @@ class MemcachedServer
           puts("\r\nConnection", client) if @debug
 
           loop do
-            if input = client.gets
+            if (input = client.gets)
               input = input.chop
               tokens = input.split
               command = tokens[0]
@@ -288,6 +288,7 @@ class MemcachedServer
                 client.puts("ERROR\r\n")
               end
             else
+              # if input is nil then client interrupted connection, server raised error input.NoMethod
               puts("\r\n#############################\r\n") if @debug
               puts('Connection aborted by client') if @debug
               break

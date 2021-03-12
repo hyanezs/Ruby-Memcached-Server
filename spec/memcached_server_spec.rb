@@ -8,7 +8,7 @@ describe 'MemcachedServer' do
   ##########################################################
   context 'Server run & client connection' do
     it 'should raise err if client connects and server is not running' do
-      expect { TCPSocket.open('localhost', 11_211) }
+      expect { TCPSocket.open('127.0.0.1', 11_211) }
         .to(raise_error(Errno::ECONNREFUSED))
     end
     it 'should start server and listen on port 11211' do
@@ -17,12 +17,12 @@ describe 'MemcachedServer' do
     end
 
     it 'should not raise err if client connects and server is running' do
-      expect { TCPSocket.open('localhost', 11_211) }
+      expect { TCPSocket.open('127.0.0.1', 11_211) }
         .to_not(raise_error)
     end
 
     it 'should not raise err if client closes connection' do
-      client = TCPSocket.open('localhost', 11_211)
+      client = TCPSocket.open('127.0.0.1', 11_211)
       expect { client.close }
         .to_not(raise_error)
     end
