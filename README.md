@@ -65,10 +65,12 @@ Testing implemented via Rspec gem
 
 ##### Usage
 
+In root directory
+
 1. Run
  `$ gem install rspec`
 
-2. In root directory
+2. Run
  `$ rspec`
 
 
