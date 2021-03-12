@@ -235,25 +235,29 @@ class MemcachedServer
               if command_read?(command)
                 is_gets = gets?(command)
                 keys = tokens.slice(1, tokens.length - 1)
-                puts("No keys submitted.\r\n") if keys.length.zero?
-                keys.each do |key|
-                  puts("#############################\r\n") if @debug
-                  puts("Retrieving key:  #{key}") if @debug
+                if keys.length.zero?
+                  puts("No keys submitted.\r\n") if @debug
+                  client.puts("ERROR\r\n")
+                else
+                  keys.each do |key|
+                    puts("#############################\r\n") if @debug
+                    puts("Retrieving key:  #{key}") if @debug
 
-                  next unless retrievable?(key) # skip when !exists or is_expired
+                    next unless retrievable?(key) # skip when !exists or is_expired
 
-                  # if retrievable then get item
-                  flags, bytes, data_block, cas_unique = get(key)
-                  if is_gets
-                    # gets
-                    client.puts("VALUE #{key} #{flags} #{bytes} #{cas_unique}\r\n")
-                  else
-                    # get
-                    client.puts("VALUE #{key} #{flags} #{bytes}\r\n")
+                    # if retrievable then get item
+                    flags, bytes, data_block, cas_unique = get(key)
+                    if is_gets
+                      # gets
+                      client.puts("VALUE #{key} #{flags} #{bytes} #{cas_unique}\r\n")
+                    else
+                      # get
+                      client.puts("VALUE #{key} #{flags} #{bytes}\r\n")
+                    end
+                    client.puts(data_block)
                   end
-                  client.puts(data_block)
+                  client.puts("END\r\n")
                 end
-                client.puts("END\r\n")
 
               elsif command_write?(command)
                 # protocol processing
