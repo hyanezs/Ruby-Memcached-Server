@@ -12,9 +12,8 @@ describe 'MemcachedServer' do
         .to(raise_error(Errno::ECONNREFUSED))
     end
     it 'should start server and listen on port 11211' do
-      server = MemcachedServer.new(true)
-      expect { server.listen_connections }
-        .to(output("Server is running! Listening connections on localhost:11211\n").to_stdout)
+      server = MemcachedServer.new(false)
+      expect(server.listen_connections).to(be(true))
     end
 
     it 'should not raise err if client connects and server is running' do
