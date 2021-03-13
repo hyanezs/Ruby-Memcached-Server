@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require 'socket'
-require 'memcached_client'
 require 'memcached_server'
 
 describe 'MemcachedServer' do
