@@ -24,7 +24,7 @@ The server must listen for new connections on a given TCP port. The implementati
 or<br/>
  `$ ruby .\start_debug.rb` for server with console logging  
 
-2. Server should be up and running on port 11211! 
+2. Server should be up and running on **port 11211**! 
 
 3. Connect with a *client* to the server and start issuing commands*
 <br/>
@@ -39,10 +39,10 @@ Various clients can be used to connect to the server. For example:
 - [PuTTy](https://www.putty.org/)
 - Windows' Telnet
 
-And any other that supports TCP.
+And any other that supports **TCP**.
 The server currently supports multiple concurrent clients.
 
-To use, connect to `127.0.0.1:11211` and issue commands
+**Usage:** Connect to `127.0.0.1:11211` and issue commands
 
 ## Supported Commands
 ### Retrieval
