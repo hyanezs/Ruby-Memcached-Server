@@ -16,7 +16,7 @@ The server must listen for new connections on a given TCP port. The implementati
 3. Download or clone repository.
 
 ## Usage
-### Run
+### Run server
 1. Cd into directory
 
 2. Run either<br/>
@@ -26,11 +26,23 @@ or<br/>
 
 2. Server should be up and running on port 11211! 
 
-3. Connect with a client to the server and start issuing commands*
+3. Connect with a *client* to the server and start issuing commands*
 <br/>
 
 *[Full protocol](https://github.com/memcached/memcached/blob/master/doc/protocol.txt) and [relevant protocol](./protocol) of commands and responses
 
+##### Clients
+
+Various clients can be used to connect to the server. For example:
+
+- Project's included [client](./lib/memcached_client) (run with `$ ruby .\client_start.rb`)
+- [PuTTy](https://www.putty.org/)
+- Windows' Telnet
+
+And any other that supports TCP.
+The server currently supports multiple concurrent clients.
+
+To use, connect to `127.0.0.1:11211` and issue commands
 
 ## Supported Commands
 ### Retrieval
