@@ -29,13 +29,13 @@ or<br/>
 3. Connect with a *client* to the server and start issuing commands*
 <br/>
 
-*[Full protocol](https://github.com/memcached/memcached/blob/master/doc/protocol.txt) and [relevant protocol](./protocol) of commands and responses
+*[Full protocol](https://github.com/memcached/memcached/blob/master/doc/protocol.txt) and [relevant protocol](protocol.txt) of commands and responses
 
 #### Clients
 
 Various clients can be used to connect to the server. For example:
 
-- Project's included [client](./lib/memcached_client) (run with `$ ruby .\client_start.rb`)
+- Project's included [client](memcached_client.rb) (run with `$ ruby .\client_start.rb`)
 - [PuTTy](https://www.putty.org/)
 - Windows' Telnet
 
