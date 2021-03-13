@@ -35,7 +35,7 @@ or<br/>
 
 Various clients can be used to connect to the server. For example:
 
-- Project's included [client](memcached_client.rb) (run with `$ ruby .\client_start.rb`)
+- Project's included [client](lib/memcached_client.rb) (run with `$ ruby .\client_start.rb`)
 - [PuTTy](https://www.putty.org/)
 - Windows' Telnet
 
