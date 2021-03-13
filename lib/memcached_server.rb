@@ -48,42 +48,51 @@ class MemcachedServer
     # assert -> is write command
 
     key = to_store[:key]
+    response = ''
+
     case command
     when 'set'
-      store(to_store, key) # returns "STORED"
-
+      response = store(to_store, key) # returns "STORED"
     # add & replace return "NOT_STORED" if key already exists (add) or doesnt exist (replace)
     when 'add'
-      if exists?(key) && !expired?(key)
-        "NOT_STORED\r\n" # "STORED"
-      else store(to_store, key)
-      end
+      response =
+        if exists?(key) && !expired?(key)
+          "NOT_STORED\r\n"
+        else
+          store(to_store, key)
+        end
     when 'replace'
-      if exists?(key) && !expired?(key)
-        store(to_store, key) # "STORED"
-      else "NOT_STORED\r\n"
-      end
+      response =
+        if exists?(key) && !expired?(key)
+          store(to_store, key) # "STORED"
+        else "NOT_STORED\r\n"
+        end
 
     # append & prepend only update bytes & data_block
     when 'append'
-      if exists?(key) && !expired?(key)
-        append(to_store, key) # "STORED"
-      else "NOT_STORED\r\n"
-      end
+      response =
+        if exists?(key) && !expired?(key)
+          append(to_store, key) # "STORED"
+        else "NOT_STORED\r\n"
+        end
 
     when 'prepend'
-      if exists?(key) && !expired?(key)
-        prepend(to_store, key) # "STORED"
-      else "NOT_STORED\r\n"
-      end
+      response =
+        if exists?(key) && !expired?(key)
+          prepend(to_store, key) # "STORED"
+        else "NOT_STORED\r\n"
+        end
 
     # cas stores if cas_unique == cas_unique from item in cache
     when 'cas'
-      if exists?(key) && !expired?(key)
-        cas(to_store, key, cas_unique) # "STORED" or "EXISTS"
-      else "NOT_FOUND\r\n"
-      end
+      response =
+        if exists?(key) && !expired?(key)
+          cas(to_store, key, cas_unique) # "STORED" or "EXISTS"
+        else "NOT_FOUND\r\n"
+        end
     end
+    puts(response) if @debug
+    response
   end
 
   # arguments processing
@@ -278,7 +287,8 @@ class MemcachedServer
 
                   # try to store, sends STORED or <error> to client
                   to_store = process_args(tokens, data_block)
-                  client.puts(process_write_command(command, to_store, cas_unique)) unless no_reply
+                  response = process_write_command(command, to_store, cas_unique)
+                  client.puts(response) unless no_reply
                 else
                   client.puts(error_string) unless no_reply
                 end
