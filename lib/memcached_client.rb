@@ -18,7 +18,7 @@ class MemcachedClient
   end
 
   def write(line)
-    @socket.puts(line) unless close?(line)
+    @socket.puts(line)
   end
 
   def connect
@@ -31,7 +31,7 @@ class MemcachedClient
   end
 
   def close?(line)
-    if %w[close quit].include?(line)
+    if line == 'close'
       disconnect
       true
     else
@@ -47,8 +47,14 @@ class MemcachedClient
     return unless connect
 
     loop do
-      write(gets)
-      read
+      input = gets.chop
+      write(input)
+      if close?(input)
+        puts('Connection ended')
+        return
+      else
+        read
+      end
     end
   end
 end
