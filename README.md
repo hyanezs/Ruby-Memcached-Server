@@ -2,7 +2,7 @@
 Memcached is a high performance multithreaded event-based key/value cache store intended to be used in a distributed system.
 See: [https://memcached.org/about](https://memcached.org/about)
 
-*[Task:](https://github.com/moove-it/coding-challenges/blob/master/ruby.md)*
+Task:
 Implement a Memcached server (TCP/IP socket) that complies with the specified protocol.
 The server must listen for new connections on a given TCP port. The implementation must accept connections and commands from any Memcached client and respond appropriately.
 
